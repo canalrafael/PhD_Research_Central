@@ -1,5 +1,5 @@
-CXX=$(realpath .)/../aarch64/arm-gnu-toolchain-14.3.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-g++
-CC=$(realpath .)/../aarch64/arm-gnu-toolchain-14.3.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-gcc
+CXX=aarch64-linux-gnu-g++
+CC=aarch64-linux-gnu-gcc
 
 ARCH := armv8-a
 
