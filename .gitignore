@@ -1,0 +1,20 @@
+# Compiled Binaries (ARM/x86)
+*.o
+*.out
+*.bin
+*.elf
+
+# Large Datasets / HPC Logs
+# (Assuming you store raw benchmark data in a 'data' folder)
+data/raw/
+*.csv
+*.log
+
+# Python/ML artifacts
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+venv/
+
+# System specific
+.DS_Store
