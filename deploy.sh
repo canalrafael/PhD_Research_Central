@@ -1,16 +1,26 @@
 #!/bin/bash
 
-# 1. Sync the code
-echo "Syncing code to FZ3..."
-rsync -avz --exclude '.git' . fz3:~/PhD_Research_Central/
+# 1. Define variables
+LOCAL_PATH="$HOME/Desktop/git/PhD_Research_Central"
+REMOTE_USER="root"
+REMOTE_IP="fz3" # This works because of your ~/.ssh/config
 
-# 2. Clear Cache on FZ3 (Remote Command)
-# We use 'drop_caches' to clear the OS page cache
+echo "--- Starting Deployment to FZ3 ---"
+
+# 2. Ensure the remote directory exists
+ssh $REMOTE_USER@$REMOTE_IP "mkdir -p ~/PhD_Research_Central"
+
+# 3. Sync files (The 'scp' way that avoids the '.' error)
+# We copy the contents of the local folder to the remote folder
+echo "Syncing code via SCP..."
+scp -r $LOCAL_PATH $REMOTE_USER@$REMOTE_IP:~/
+
+# 4. Clear Cache (Essential for clean PhD data)
 echo "Clearing FZ3 System Cache..."
-ssh fz3 "echo 3 > /proc/sys/vm/drop_caches"
+ssh $REMOTE_USER@$REMOTE_IP "echo 3 > /proc/sys/vm/drop_caches"
 
-# 3. Setup Platform
-echo "Configuring FZ3 environment..."
-ssh fz3 "cd ~/PhD_Research_Central && ./scripts/setup_platform.sh"
+# 5. Run Platform Setup
+echo "Running setup_platform.sh on FZ3..."
+ssh $REMOTE_USER@$REMOTE_IP "cd ~/PhD_Research_Central && chmod +x scripts/setup_platform.sh && ./scripts/setup_platform.sh"
 
-echo "FZ3 is clean and ready for Benchmark."
+echo "--- FZ3 is Ready ---"
