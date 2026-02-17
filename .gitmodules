@@ -1,0 +1,3 @@
+[submodule "external/meltdown"]
+	path = external/meltdown
+	url = git@github.com:canalrafael/meltdown.git
