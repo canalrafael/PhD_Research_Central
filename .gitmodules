@@ -1,3 +1,6 @@
 [submodule "external/meltdown"]
 	path = external/meltdown
 	url = git@github.com:canalrafael/meltdown.git
+[submodule "external/sort-bench"]
+	path = external/sort-bench
+	url = https://github.com/travisdowns/sort-bench.git
