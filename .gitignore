@@ -18,3 +18,4 @@ venv/
 
 # System specific
 .DS_Store
+external/misc-benchmarks/bandwidth_fz3
