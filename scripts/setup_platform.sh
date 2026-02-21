@@ -12,8 +12,9 @@ elif [[ "$CPU_MODEL" == *"Cortex-A53"* ]]; then
     echo "Hardware Detected: FZ3 Board (Cortex-A53)"
     PLATFORM="fz3"
 else
-    echo "Unknown Hardware. Manual selection required."
-    exit 1
+    # Force FZ3 as the default for your PhD environment
+    echo "Unknown Hardware ($CPU_MODEL). Manually selecting FZ3 for PhD Research."
+    PLATFORM="fz3"
 fi
 
 # Switch Submodule Branches
