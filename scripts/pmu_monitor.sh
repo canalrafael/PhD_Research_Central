@@ -4,7 +4,7 @@
 # Usage: ./scripts/pmu_monitor.sh <benchmark_name>
 BENCH_NAME=${1:-"bandwidth"} 
 DATA_DIR="data/raw"
-DURATION=3600  # 1 hour
+DURATION=1800  # 1 hour
 INTERVAL=1     # 1 second sampling
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
