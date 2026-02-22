@@ -177,25 +177,42 @@
 
  * \return uint64_t 64-bit value of the counter.
  */
+// static uint64_t rdtsc() {
+//     /* Serialization. */
+//     mfence_sys();
+//     ifence();
+//     /* Get the current time. */
+//     struct timespec t1;
+//     /* CLOCK_MONOTONIC represents the absolute elapsed wall-clock time since
+//      * some arbitrary, fixed point in the past. It represents monotonic time
+//      * since—as described by POSIX—"some un specified point in the past". This
+//      * clock advances at one tick per tick. The important aspect of a monotonic
+//      * time source is NOT the current value, but the guarantee that the time
+//      * source is strictly linearly increasing, and thus useful for calculating
+//      * the difference in time between two samplings. */
+//     clock_gettime(CLOCK_MONOTONIC, &t1);
+//     /* "res" count the number of nanoseconds. */
+//     uint64_t res = t1.tv_sec * 1000 * 1000 * 1000ULL + t1.tv_nsec;
+//     /* Serialization. */
+//     ifence();
+//     mfence_sys();
+//     return res;
+// }
 static uint64_t rdtsc() {
-    /* Serialization. */
-    mfence_sys();
-    ifence();
-    /* Get the current time. */
-    struct timespec t1;
-    /* CLOCK_MONOTONIC represents the absolute elapsed wall-clock time since
-     * some arbitrary, fixed point in the past. It represents monotonic time
-     * since—as described by POSIX—"some un specified point in the past". This
-     * clock advances at one tick per tick. The important aspect of a monotonic
-     * time source is NOT the current value, but the guarantee that the time
-     * source is strictly linearly increasing, and thus useful for calculating
-     * the difference in time between two samplings. */
-    clock_gettime(CLOCK_MONOTONIC, &t1);
-    /* "res" count the number of nanoseconds. */
-    uint64_t res = t1.tv_sec * 1000 * 1000 * 1000ULL + t1.tv_nsec;
-    /* Serialization. */
-    ifence();
-    mfence_sys();
+    uint64_t res;
+    /* * Serialization: DSB and ISB ensure all previous instructions 
+     * are complete before reading the Virtual Counter.
+     */
+    __asm volatile(
+        "dsb sy\n\t"
+        "isb\n\t"
+        "mrs %0, cntvct_el0\n\t"
+        "isb\n\t"
+        "dsb sy"
+        : "=r" (res)
+        :
+        : "memory"
+    );
     return res;
 }
 

