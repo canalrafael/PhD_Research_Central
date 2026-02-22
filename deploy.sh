@@ -1,36 +1,66 @@
 #!/bin/bash
 
-# 1. Define variables
-LOCAL_PATH="$HOME/Desktop/git/PhD_Research_Central"
+# --- 1. CONFIGURATION ---
 REMOTE_USER="root"
-REMOTE_IP="fz3" # Uses 192.168.1.9 based on ~/.ssh/config
+REMOTE_IP="fz3"
+REMOTE_DIR="~/PhD_Research_Central"
+LOCAL_PATH="$HOME/Desktop/git/PhD_Research_Central"
 
-echo "--- Starting Deployment to FZ3 ---"
+# Define the local cross-compiler tools
+CC_AARCH64="aarch64-linux-gnu-gcc"
+AR_AARCH64="aarch64-linux-gnu-ar"
 
-# 2. Cross-Compile Benchmarks for FZ3 (Cortex-A53)
-# We compile on the VM because the FZ3 lacks a native 'gcc'
-echo "Cross-compiling bandwidth benchmark..."
-aarch64-linux-gnu-gcc \
-    $LOCAL_PATH/external/misc-benchmarks/bandwidth.c \
-    -o $LOCAL_PATH/external/misc-benchmarks/bandwidth_fz3 \
-    -lpthread
+echo "--- Starting Scalable PhD Deployment for FZ3 ---"
 
-# 3. Ensure the remote directory exists
-ssh $REMOTE_USER@$REMOTE_IP "mkdir -p ~/PhD_Research_Central"
+# --- 2. COMPILATION FUNCTIONS ---
 
-# 4. Sync files
-# Copies all research code and the new cross-compiled binary to the board
-echo "Syncing code via SCP..."
-scp -r $LOCAL_PATH $REMOTE_USER@$REMOTE_IP:~/
+build_attacks() {
+    echo "[+] Compiling Attacks..."
+    
+    # 2.1 Armageddon (libflush)
+    if [ -d "$LOCAL_PATH/external/attacks/armageddon/libflush" ]; then
+        cd "$LOCAL_PATH/external/attacks/armageddon/libflush" || exit
+        
+        # Override Makefile defaults to use your VM's aarch64-linux-gnu tools
+        # instead of the missing Android NDK paths
+        make clean > /dev/null 2>&1
+        make ARCH=armv8 \
+             CROSS_COMPILE=aarch64-linux-gnu- \
+             CC=$CC_AARCH64 \
+             AR=$AR_AARCH64 \
+             -j$(nproc)
+    else
+        echo "[!] Warning: Armageddon (libflush) path not found."
+    fi
+    
+    cd "$LOCAL_PATH"
+}
 
-# 5. Clear Cache (Essential for clean PhD data)
-# Drops file system caches on the FZ3 to ensure benchmark accuracy
-echo "Clearing FZ3 System Cache..."
-ssh $REMOTE_USER@$REMOTE_IP "echo 3 > /proc/sys/vm/drop_caches"
+build_benchmarks() {
+    echo "[+] Compiling Benchmarks..."
+    # Using your Ubuntu cross-compiler for the bandwidth tool
+    $CC_AARCH64 "$LOCAL_PATH/external/benchmarks/misc-benchmarks/bandwidth.c" \
+                -o "$LOCAL_PATH/external/benchmarks/misc-benchmarks/bandwidth_fz3" \
+                -lpthread
+}
 
-# 6. Run Platform Setup
-# Triggers the platform detection script on the board
-echo "Running setup_platform.sh on FZ3..."
-ssh $REMOTE_USER@$REMOTE_IP "cd ~/PhD_Research_Central && chmod +x scripts/setup_platform.sh && ./scripts/setup_platform.sh"
+# Run the builds
+build_attacks
+build_benchmarks
 
-echo "--- FZ3 is Ready ---"
+# --- 3. SYNCHRONIZATION ---
+echo "[+] Syncing structure to FZ3 (Excluding videos and objects)..."
+tar --exclude='*.mp4' --exclude='*.o' --exclude='.git' -cf - external/ scripts/ | \
+    ssh "$REMOTE_USER@$REMOTE_IP" "mkdir -p $REMOTE_DIR && tar -xf - -C $REMOTE_DIR"
+
+# --- 4. REMOTE SETUP ---
+echo "[+] Finalizing Board Configuration..."
+ssh "$REMOTE_USER@$REMOTE_IP" << EOF
+    chmod +x $REMOTE_DIR/external/benchmarks/misc-benchmarks/bandwidth_fz3
+    chmod +x $REMOTE_DIR/scripts/*.sh
+    echo 1 > /proc/sys/kernel/perf_event_paranoid
+    sync; echo 3 > /proc/sys/vm/drop_caches
+    echo "Board ready for experiments."
+EOF
+
+echo "--- Deployment Complete ---"
