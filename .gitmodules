@@ -1,6 +1,0 @@
-[submodule "external/meltdown"]
-	path = external/meltdown
-	url = git@github.com:canalrafael/meltdown.git
-[submodule "external/misc-benchmarks"]
-	path = external/misc-benchmarks
-	url = https://github.com/heechul/misc.git
