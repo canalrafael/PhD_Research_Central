@@ -28,13 +28,13 @@ build_attacks() {
              AR=$AR_AARCH64 -j$(nproc)
     fi
 
-    # 2.2 Rowhammer.js
-    if [ -d "$LOCAL_PATH/external/attacks/rowhammerjs/native" ]; then
-        echo "[+] Building Rowhammer Native Tools for ARM..."
-        cd "$LOCAL_PATH/external/attacks/rowhammerjs/native" || exit
-        $CXX_AARCH64 -O3 -std=c++11 rowhammer.cc -o rowhammer_fz3 -lpthread \
-            -DARMV8 -DNO_X86_ASM 
-    fi
+    # # 2.2 Rowhammer.js
+    # if [ -d "$LOCAL_PATH/external/attacks/rowhammerjs/native" ]; then
+    #     echo "[+] Building Rowhammer Native Tools for ARM..."
+    #     cd "$LOCAL_PATH/external/attacks/rowhammerjs/native" || exit
+    #     $CXX_AARCH64 -O3 -std=c++11 rowhammer.cc -o rowhammer_fz3 -lpthread \
+    #         -DARMV8 -DNO_X86_ASM 
+    # fi # It is crashing my PC
 
     # 2.3 SpectrePoC
     if [ -d "$LOCAL_PATH/external/attacks/spectre" ]; then
@@ -67,6 +67,17 @@ build_benchmarks() {
     $CC_AARCH64 "$LOCAL_PATH/external/benchmarks/misc-benchmarks/latency.c" \
                 -o "$LOCAL_PATH/external/benchmarks/misc-benchmarks/latency_fz3" \
                 -lpthread
+    
+    if [ -d "$LOCAL_PATH/external/benchmarks/sort-bench" ]; then
+        echo "[+] Building Sort Benchmark for FZ3 (Full Link)..."
+        cd "$LOCAL_PATH/external/benchmarks/sort-bench" || exit
+        
+        $CXX_AARCH64 -O3 bench.cpp std-sorts.cpp msort-copy.cpp radix1.cpp \
+                    radix2.cpp radix3.cpp radix4.cpp radix5.cpp radix6.cpp \
+                    -o bench -lpthread
+    fi
+
+    cd "$LOCAL_PATH"
 }
 
 # Run the builds
