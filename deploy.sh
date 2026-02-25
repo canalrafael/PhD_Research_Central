@@ -85,8 +85,8 @@ build_attacks
 build_benchmarks
 
 # --- 3. SYNCHRONIZATION ---
-echo "[+] Syncing structure to FZ3 (Excluding videos and objects)..."
-tar --exclude='*.mp4' --exclude='*.o' --exclude='.git' -cf - external/ scripts/ | \
+echo "[+] Syncing structure to FZ3 (Excluding data, videos, and objects)..."
+tar --exclude='data' --exclude='*.mp4' --exclude='*.o' --exclude='.git' -cf - external/ scripts/ | \
     ssh "$REMOTE_USER@$REMOTE_IP" "mkdir -p $REMOTE_DIR && tar -xf - -C $REMOTE_DIR"
 
 # --- 4. REMOTE SETUP ---
@@ -100,5 +100,8 @@ ssh "$REMOTE_USER@$REMOTE_IP" << EOF
     sync; echo 3 > /proc/sys/vm/drop_caches
     echo "Board ready for experiments."
 EOF
+
+# Update the board clock to match the VM's current time
+ssh "$REMOTE_USER@$REMOTE_IP" "date -s '$(date "+%Y-%m-%d %H:%M:%S")'"
 
 echo "--- Deployment Complete ---"

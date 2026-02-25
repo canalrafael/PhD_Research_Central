@@ -12,7 +12,7 @@ echo "--- Synchronizing F.Z.3 Work back to V.M. ---"
 # We use -r for recursive and -p to preserve modification times/permissions
 # This pulls the entire directory structure including data/raw/ and modified scripts
 echo "Pulling updates from F.Z.3 via SCP..."
-scp -rp $REMOTE_USER@$REMOTE_IP:$REMOTE_PROJECT_PATH* $LOCAL_PROJECT_PATH
+scp -rp $REMOTE_USER@$REMOTE_IP:${REMOTE_PROJECT_PATH}data/ $LOCAL_PROJECT_PATH
 
 if [ $? -eq 0 ]; then
     echo "Sync successful. Files are now in $LOCAL_PROJECT_PATH"
