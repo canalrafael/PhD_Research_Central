@@ -64,9 +64,9 @@ build_benchmarks() {
                 -lpthread
     
     # Compile the latency tool
-    $CC_AARCH64 "$LOCAL_PATH/external/benchmarks/misc-benchmarks/latency.c" \
-                -o "$LOCAL_PATH/external/benchmarks/misc-benchmarks/latency_fz3" \
-                -lpthread
+    # $CC_AARCH64 "$LOCAL_PATH/external/benchmarks/misc-benchmarks/latency.c" \
+    #             -o "$LOCAL_PATH/external/benchmarks/misc-benchmarks/latency_fz3" \
+    #             -lpthread
     
     if [ -d "$LOCAL_PATH/external/benchmarks/sort-bench" ]; then
         echo "[+] Building Sort Benchmark for FZ3 (Full Link)..."

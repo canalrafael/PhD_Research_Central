@@ -53,7 +53,7 @@ monitor_pmu_fixed() {
 # --- 3. TARGET COMMANDS ---
 BENCH_CMDS=(
     "bandwidth:$BASE_DIR/external/benchmarks/misc-benchmarks/bandwidth_fz3 -m 100 -t 5"
-    "latency:$BASE_DIR/external/benchmarks/misc-benchmarks/latency_fz3"
+    # "latency:$BASE_DIR/external/benchmarks/misc-benchmarks/latency_fz3"
     "sort_bench:$BASE_DIR/external/benchmarks/sort-bench/bench"
 )
 
