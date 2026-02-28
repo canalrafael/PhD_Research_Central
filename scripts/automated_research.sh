@@ -2,7 +2,13 @@
 
 # --- 1. CONFIGURATION AND ARGUMENTS ---
 # Usage: sudo ./scripts/automated_research.sh <MINUTES_PER_ITEM> <MODE: --parallel | --sequential>
-# sudo ./scripts/automated_research.sh 1 --sequential
+# sudo ./scripts/automated_research.sh 30 --sequential
+# sudo ./scripts/automated_research.sh 30 --parallel
+
+# cd ~/PhD_Research_Central
+# nohup sudo ./scripts/automated_research.sh 30 --sequential > research_feb28.log 2>&1 &
+# disown
+
 MINUTES_PER_ITEM=${1:-10}
 MODE=${2:-"--sequential"} 
 SECONDS_PER_ITEM=$((MINUTES_PER_ITEM * 60))

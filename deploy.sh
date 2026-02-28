@@ -16,7 +16,9 @@ echo "--- Starting Scalable PhD Deployment for FZ3 ---"
 # --- 2. COMPILATION FUNCTIONS ---
 
 build_attacks() {
-    echo "[+] Compiling Attacks..."
+    echo "[+] Cleaning and Compiling Attacks..."
+    rm -f "$LOCAL_PATH/external/attacks/spectre/spectre_fz3" # Force rebuild
+    rm -f "$LOCAL_PATH/external/attacks/spectre_2/spectre_2_fz3"
     
     # 2.1 Armageddon
     if [ -d "$LOCAL_PATH/external/attacks/armageddon/libflush" ]; then
@@ -86,22 +88,28 @@ build_benchmarks
 
 # --- 3. SYNCHRONIZATION ---
 echo "[+] Syncing structure to FZ3 (Excluding data, videos, and objects)..."
+# Removed '--overwrite' because BusyBox tar replaces files by default
 tar --exclude='data' --exclude='*.mp4' --exclude='*.o' --exclude='.git' -cf - external/ scripts/ | \
     ssh "$REMOTE_USER@$REMOTE_IP" "mkdir -p $REMOTE_DIR && tar -xf - -C $REMOTE_DIR"
 
 # --- 4. REMOTE SETUP ---
 echo "[+] Finalizing Board Configuration..."
+
+# Update board clock to match VM immediately before setup tasks
+ssh "$REMOTE_USER@$REMOTE_IP" "date -s '$(date "+%Y-%m-%d %H:%M:%S")'"
+
 ssh "$REMOTE_USER@$REMOTE_IP" << EOF
-    # Smart permission update: only grant +x to actual binaries, not source code
+    # Replaced '-delete' with BusyBox compatible '-exec rm -f {} \;'
+    find $REMOTE_DIR/external -type f -name "*_fz3" -exec rm -f {} \;
+    find $REMOTE_DIR/external -type f -name "bench" -exec rm -f {} \;
+
+    # Only grant +x to actual binaries and scripts
     find $REMOTE_DIR/external -type f -executable -exec chmod +x {} +
     chmod +x $REMOTE_DIR/scripts/*.sh
     
     echo 1 > /proc/sys/kernel/perf_event_paranoid
     sync; echo 3 > /proc/sys/vm/drop_caches
-    echo "Board ready for experiments."
+    echo "Board ready for experiments. Current time: \$(date)"
 EOF
-
-# Update the board clock to match the VM's current time
-ssh "$REMOTE_USER@$REMOTE_IP" "date -s '$(date "+%Y-%m-%d %H:%M:%S")'"
 
 echo "--- Deployment Complete ---"
