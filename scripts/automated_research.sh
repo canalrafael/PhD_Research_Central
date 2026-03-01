@@ -6,7 +6,7 @@
 # sudo ./scripts/automated_research.sh 30 --parallel
 
 # cd ~/PhD_Research_Central
-# nohup sudo ./scripts/automated_research.sh 30 --sequential > research_feb28.log 2>&1 &
+# nohup sudo ./scripts/automated_research.sh 45 --sequential > research_mar1.log 2>&1 &
 # disown
 
 MINUTES_PER_ITEM=${1:-10}
@@ -28,7 +28,7 @@ reset_system() {
     echo 1 > /proc/sys/kernel/perf_event_paranoid
 }
 
-# Fixed PMU monitoring function using perf stat
+# Optimized PMU monitoring function
 monitor_pmu_fixed() {
     local label=$1
     local duration=$2
@@ -43,16 +43,18 @@ monitor_pmu_fixed() {
         # Collect hardware counters every 250ms
         local STATS=$(perf stat -a -e cycles,instructions,cache-misses,cache-references,branch-misses,bus-cycles,branches sleep 0.25 2>&1)
         
-        local CYC=$(echo "$STATS" | awk '/cycles/ {print $1}' | head -1 | tr -d ',')
-        local INS=$(echo "$STATS" | awk '/instructions/ {print $1}' | tr -d ',')
-        local CMS=$(echo "$STATS" | awk '/cache-misses/ {print $1}' | tr -d ',')
-        local CRF=$(echo "$STATS" | awk '/cache-references/ {print $1}' | tr -d ',')
-        local BMS=$(echo "$STATS" | awk '/branch-misses/ {print $1}' | tr -d ',')
-        local BUS=$(echo "$STATS" | awk '/bus-cycles/ {print $1}' | tr -d ',')
-        local BRA=$(echo "$STATS" | awk '/ branches/ {print $1}' | tr -d ',')
-        local TS=$(date +"%H:%M:%S.%3N")
+        # Strip all hidden whitespace and newlines
+        local CYC=$(echo "$STATS" | awk '/cycles/ {print $1}' | head -1 | tr -d ',[:space:]')
+        local INS=$(echo "$STATS" | awk '/instructions/ {print $1}' | tr -d ',[:space:]')
+        local CMS=$(echo "$STATS" | awk '/cache-misses/ {print $1}' | tr -d ',[:space:]')
+        local CRF=$(echo "$STATS" | awk '/cache-references/ {print $1}' | tr -d ',[:space:]')
+        local BMS=$(echo "$STATS" | awk '/branch-misses/ {print $1}' | tr -d ',[:space:]')
+        local BUS=$(echo "$STATS" | awk '/bus-cycles/ {print $1}' | tr -d ',[:space:]')
+        local BRA=$(echo "$STATS" | awk '/ branches/ {print $1}' | tr -d ',[:space:]')
+        local TS=$(date +"%H:%M:%S")
 
-        echo "$TS,$CYC,$INS,$CMS,$CRF,$BMS,$BUS,$BRA" >> "$output_csv"
+        # Use quotes and braces to ensure the data stays on one line
+        echo "${TS},${CYC},${INS},${CMS},${CRF},${BMS},${BUS},${BRA}" >> "$output_csv"
     done
 }
 
