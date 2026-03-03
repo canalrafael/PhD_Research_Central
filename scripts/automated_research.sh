@@ -6,7 +6,7 @@
 # sudo ./scripts/automated_research.sh 30 --parallel
 
 # cd ~/PhD_Research_Central
-# nohup sudo ./scripts/automated_research.sh 30 --sequential > research_mar1.log 2>&1 &
+# nohup sudo ./scripts/automated_research.sh 60 --sequential > research_mar1.log 2>&1 &
 # disown
 
 MINUTES_PER_ITEM=${1:-10}
