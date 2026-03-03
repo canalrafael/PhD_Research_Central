@@ -6,7 +6,7 @@
 # sudo ./scripts/automated_research.sh 30 --parallel
 
 # cd ~/PhD_Research_Central
-# nohup sudo ./scripts/automated_research.sh 45 --sequential > research_mar1.log 2>&1 &
+# nohup sudo ./scripts/automated_research.sh 30 --sequential > research_mar1.log 2>&1 &
 # disown
 
 MINUTES_PER_ITEM=${1:-10}
@@ -45,17 +45,18 @@ monitor_pmu_fixed() {
         
         # Strip all hidden whitespace and newlines
         local CYC=$(echo "$STATS" | awk '/cycles/ {print $1}' | head -1 | tr -d ',[:space:]')
-        local INS=$(echo "$STATS" | awk '/instructions/ {print $1}' | tr -d ',[:space:]')
-        local CMS=$(echo "$STATS" | awk '/cache-misses/ {print $1}' | tr -d ',[:space:]')
-        local CRF=$(echo "$STATS" | awk '/cache-references/ {print $1}' | tr -d ',[:space:]')
-        local BMS=$(echo "$STATS" | awk '/branch-misses/ {print $1}' | tr -d ',[:space:]')
-        local BUS=$(echo "$STATS" | awk '/bus-cycles/ {print $1}' | tr -d ',[:space:]')
-        local BRA=$(echo "$STATS" | awk '/ branches/ {print $1}' | tr -d ',[:space:]')
+        local INS=$(echo "$STATS" | awk '/instructions/ {print $1}' | head -1 | tr -d ',[:space:]')
+        local CMS=$(echo "$STATS" | awk '/cache-misses/ {print $1}' | head -1 | tr -d ',[:space:]')
+        local CRF=$(echo "$STATS" | awk '/cache-references/ {print $1}' | head -1 | tr -d ',[:space:]')
+        local BMS=$(echo "$STATS" | awk '/branch-misses/ {print $1}' | head -1 | tr -d ',[:space:]')
+        local BUS=$(echo "$STATS" | awk '/bus-cycles/ {print $1}' | head -1 | tr -d ',[:space:]')
+        local BRA=$(echo "$STATS" | awk '$2 == "branches" {print $1}' | head -1 | tr -d ',[:space:]')
+        
         local TS=$(date +"%H:%M:%S")
 
         # Use quotes and braces to ensure the data stays on one line
         echo "${TS},${CYC},${INS},${CMS},${CRF},${BMS},${BUS},${BRA}" >> "$output_csv"
-    done
+    done  # <--- THIS WAS MISSING
 }
 
 # --- 3. TARGET COMMANDS ---
