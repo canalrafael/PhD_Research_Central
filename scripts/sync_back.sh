@@ -16,6 +16,9 @@ scp -rp $REMOTE_USER@$REMOTE_IP:${REMOTE_PROJECT_PATH}data/ $LOCAL_PROJECT_PATH
 
 if [ $? -eq 0 ]; then
     echo "Sync successful. Files are now in $LOCAL_PROJECT_PATH"
+
+    # This command only deletes CSVs to keep your folder structure intact
+    ssh $REMOTE_USER@$REMOTE_IP "rm -f ${REMOTE_DATA_PATH}*.csv"
     
     # 3. Show status of retrieved research data
     echo "Latest P.M.U. results retrieved:"

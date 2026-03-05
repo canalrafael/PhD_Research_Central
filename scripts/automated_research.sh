@@ -6,11 +6,12 @@
 # sudo ./scripts/automated_research.sh 30 --parallel
 
 # cd ~/PhD_Research_Central
-# nohup sudo ./scripts/automated_research.sh 60 --sequential > research_mar1.log 2>&1 &
+# nohup sudo ./scripts/automated_research.sh 60 --sequential benchmarks > research_mar1.log 2>&1 &
 # disown
 
 MINUTES_PER_ITEM=${1:-10}
 MODE=${2:-"--sequential"} 
+TARGET_TYPE=${3:-"all"} # New: "all" runs everything, "benchmarks" runs only benchmarks
 SECONDS_PER_ITEM=$((MINUTES_PER_ITEM * 60))
 
 BASE_DIR="$HOME/PhD_Research_Central"
@@ -75,27 +76,29 @@ ATTACK_CMDS=(
 
 # --- 4. EXECUTION ---
 
+# --- 4. EXECUTION ---
+
 if [ "$MODE" == "--parallel" ]; then
-    # PARALLEL MODE: Run Benchmarks and Attacks simultaneously on separate cores
+    # PARALLEL MODE (Remains unchanged but respects TARGET_TYPE)
     for B_ENTRY in "${BENCH_CMDS[@]}"; do
         IFS=":" read -r B_NAME B_PATH <<< "$B_ENTRY"
         for A_ENTRY in "${ATTACK_CMDS[@]}"; do
+            # Skip attacks if user only wants benchmarks
+            if [ "$TARGET_TYPE" == "benchmarks" ]; then continue 2; fi
+            
             IFS=":" read -r A_NAME A_PATH <<< "$A_ENTRY"
             reset_system
             echo "[!] Starting Pair: $B_NAME + $A_NAME"
-            
-            # Execute both targets in an infinite loop in the background
             ( while true; do taskset -c 0 $B_PATH > /dev/null 2>&1; done ) & PID_B=$!
             ( while true; do taskset -c 1 $A_PATH > /dev/null 2>&1; done ) & PID_A=$!
-            
             monitor_pmu_fixed "parallel_${B_NAME}_${A_NAME}" $SECONDS_PER_ITEM
-            
             kill -9 $PID_B $PID_A 2>/dev/null
             wait $PID_B $PID_A 2>/dev/null
         done
     done
 else
-    # SEQUENTIAL MODE: Run each target individually
+    # SEQUENTIAL MODE
+    # Always run benchmarks
     for B_ENTRY in "${BENCH_CMDS[@]}"; do
         IFS=":" read -r B_NAME B_PATH <<< "$B_ENTRY"
         reset_system
@@ -105,14 +108,17 @@ else
         wait $PID_W 2>/dev/null
     done
 
-    for A_ENTRY in "${ATTACK_CMDS[@]}"; do
-        IFS=":" read -r A_NAME A_PATH <<< "$A_ENTRY"
-        reset_system
-        ( while true; do taskset -c 0 $A_PATH > /dev/null 2>&1; done ) & PID_W=$!
-        monitor_pmu_fixed "$A_NAME" $SECONDS_PER_ITEM
-        kill -9 $PID_W 2>/dev/null
-        wait $PID_W 2>/dev/null
-    done
+    # Only run attacks if TARGET_TYPE is "all"
+    if [ "$TARGET_TYPE" == "all" ]; then
+        for A_ENTRY in "${ATTACK_CMDS[@]}"; do
+            IFS=":" read -r A_NAME A_PATH <<< "$A_ENTRY"
+            reset_system
+            ( while true; do taskset -c 0 $A_PATH > /dev/null 2>&1; done ) & PID_W=$!
+            monitor_pmu_fixed "$A_NAME" $SECONDS_PER_ITEM
+            kill -9 $PID_W 2>/dev/null
+            wait $PID_W 2>/dev/null
+        done
+    fi
 fi
 
 echo "=== Research Completed. Data saved in $DATA_RAW_DIR ==="
