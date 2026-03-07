@@ -5,6 +5,7 @@ REMOTE_USER="root"
 REMOTE_IP="fz3" 
 REMOTE_PROJECT_PATH="~/PhD_Research_Central/"
 LOCAL_PROJECT_PATH="$HOME/Desktop/git/PhD_Research_Central/"
+REMOTE_DATA_PATH="${REMOTE_PROJECT_PATH}data/raw/"
 
 echo "--- Synchronizing F.Z.3 Work back to V.M. ---"
 
